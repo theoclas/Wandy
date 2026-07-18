@@ -49,7 +49,16 @@ O manualmente:
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
-La web queda en el puerto **80**. Nginx sirve el frontend y reenvía `/api` a la API.
+La web queda en el puerto **8085** por defecto (configurable). Nginx sirve el frontend y reenvía `/api` a la API.
+
+Puertos por defecto (para no chocar con otros proyectos en el 80/443):
+
+| Servicio | Puerto host | Uso |
+|----------|-------------|-----|
+| Front + `/api` | **8085** | Entrar aquí en el navegador |
+| API directa | **3085** | Opcional (`/api/...`) |
+
+Cámbialos en `.env.production` con `HTTP_PORT` y `API_PORT` si esos también están ocupados.
 
 ## 4. Usuarios iniciales (si `RUN_SEED=true`)
 

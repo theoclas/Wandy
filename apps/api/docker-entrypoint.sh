@@ -2,6 +2,7 @@
 set -e
 
 export PATH="/app/node_modules/.bin:$PATH"
+export NODE_PATH="/app/node_modules${NODE_PATH:+:$NODE_PATH}"
 cd /app/apps/api
 
 # Encode password so special characters (@ # : / etc.) don't break the URL
@@ -33,5 +34,15 @@ if [ "${RUN_SEED:-false}" = "true" ]; then
   npx tsx prisma/seed.ts || echo "Seed skipped/failed"
 fi
 
-echo "Starting API on port ${PORT:-3000}..."
-exec node dist/main.js
+if [ -f dist/main.js ]; then
+  MAIN=dist/main.js
+elif [ -f dist/src/main.js ]; then
+  MAIN=dist/src/main.js
+else
+  echo "ERROR: Nest build output not found. Contents of dist:"
+  ls -laR dist || true
+  exit 1
+fi
+
+echo "Starting API on port ${PORT:-3000} ($MAIN)..."
+exec node "$MAIN"

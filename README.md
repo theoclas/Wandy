@@ -42,17 +42,32 @@ Abre http://localhost:5173
 
 ## Despliegue en VPS
 
-Ver la guía completa: **[DEPLOY.md](DEPLOY.md)**
+Hay dos formas:
 
-Resumen:
+### A) PM2 (recomendado si ya usas PM2 en otros proyectos)
+
+```bash
+cd ~/apps/Wandy
+git pull
+nano .env.production   # define VITE_API_URL=http://TU_IP:3085
+chmod +x deploy/pm2.sh
+./deploy/pm2.sh
+pm2 startup && pm2 save
+```
+
+- Front: puerto **8085** (PM2 + `serve`)
+- API: puerto **3085** (PM2)
+- Postgres: Docker en `127.0.0.1:5434`
+
+### B) Docker completo (API + Web + Postgres)
+
+Ver detalles abajo / `./deploy/deploy.sh`
 
 ```bash
 cp .env.production.example .env.production
 # Edita secretos y CORS_ORIGIN
 ./deploy/deploy.sh
 ```
-
-Eso levanta Postgres + API + Nginx (frontend) con Docker.
 
 ## Variables de entorno (desarrollo)
 

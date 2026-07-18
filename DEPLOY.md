@@ -1,5 +1,63 @@
 # Despliegue en VPS
 
+## Opción A — PM2 (API + Front) + Docker solo Postgres
+
+Ideal si en la VPS ya usas PM2 para otros proyectos.
+
+### Requisitos
+
+- Node.js 20+
+- PM2 (`npm i -g pm2`)
+- Docker (solo para Postgres)
+
+### Pasos
+
+```bash
+cd ~/apps/Wandy
+git pull
+nano .env.production
+```
+
+Configura al menos:
+
+```env
+POSTGRES_PASSWORD=tu-clave
+JWT_SECRET=tu-jwt
+CORS_ORIGIN=http://TU_IP:8085
+HTTP_PORT=8085
+API_PORT=3085
+POSTGRES_PORT=5434
+VITE_API_URL=http://TU_IP:3085
+RUN_SEED=true
+```
+
+```bash
+chmod +x deploy/pm2.sh
+./deploy/pm2.sh
+
+# Autostart tras reinicio (una vez)
+pm2 startup
+pm2 save
+```
+
+Abre `http://TU_IP:8085`
+
+| Proceso PM2 | Puerto |
+|-------------|--------|
+| wandy-web | 8085 |
+| wandy-api | 3085 |
+| postgres (Docker) | 127.0.0.1:5434 |
+
+```bash
+pm2 status
+pm2 logs wandy-api
+pm2 restart all
+```
+
+---
+
+## Opción B — Docker completo (API + Web + Postgres)
+
 Guía rápida para montar Wandy en un VPS con Docker.
 
 ## Requisitos en el servidor

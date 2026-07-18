@@ -166,7 +166,8 @@ export async function api<T>(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`/api${path}`, { ...options, headers });
+  const base = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '';
+  const res = await fetch(`${base}/api${path}`, { ...options, headers });
   if (!res.ok) {
     let message = 'Error en la solicitud';
     try {

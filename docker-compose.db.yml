@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wandy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wandy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-wandy}
+    ports:
+      # Solo localhost: no expuesto a internet
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - wandy_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wandy} -d ${POSTGRES_DB:-wandy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  wandy_pg_data:

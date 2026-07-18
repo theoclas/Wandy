@@ -4,6 +4,18 @@ set -e
 export PATH="/app/node_modules/.bin:$PATH"
 cd /app/apps/api
 
+# Encode password so special characters (@ # : / etc.) don't break the URL
+export DATABASE_URL="$(
+  node -e "
+    const user = process.env.POSTGRES_USER || 'wandy';
+    const pass = encodeURIComponent(process.env.POSTGRES_PASSWORD || '');
+    const host = process.env.POSTGRES_HOST || 'postgres';
+    const port = process.env.POSTGRES_PORT || '5432';
+    const db = process.env.POSTGRES_DB || 'wandy';
+    process.stdout.write('postgresql://' + user + ':' + pass + '@' + host + ':' + port + '/' + db + '?schema=public');
+  "
+)"
+
 echo "Waiting for database and applying migrations..."
 i=0
 until npx prisma migrate deploy --schema=./prisma/schema.prisma; do

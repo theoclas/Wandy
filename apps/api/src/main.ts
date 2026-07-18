@@ -3,6 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import type { NextFunction, Request, Response } from 'express';
 
+function parseCorsOrigins(raw?: string): string | string[] | boolean {
+  if (!raw || raw.trim() === '') return true;
+  if (raw.trim() === '*') return true;
+  const list = raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  return list.length === 1 ? list[0] : list;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -14,7 +24,7 @@ async function bootstrap() {
     next();
   });
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: parseCorsOrigins(process.env.CORS_ORIGIN),
     credentials: true,
   });
   app.useGlobalPipes(
@@ -25,6 +35,7 @@ async function bootstrap() {
     }),
   );
   app.setGlobalPrefix('api');
-  await app.listen(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 3000);
+  await app.listen(port, '0.0.0.0');
 }
 bootstrap();

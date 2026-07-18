@@ -5,11 +5,11 @@ Monorepo con API NestJS + Prisma (PostgreSQL) y frontend React (Vite).
 ## Requisitos
 
 - Node.js 20+
-- Docker Desktop (para PostgreSQL)
+- Docker (PostgreSQL local o stack completo de producción)
 
-> PostgreSQL del contenedor escucha en el puerto **5433** (evita conflicto con otras instalaciones locales en 5432).
+> En desarrollo, PostgreSQL del contenedor escucha en el puerto **5433**.
 
-## Arranque rápido
+## Arranque rápido (desarrollo)
 
 ```bash
 # 1. Base de datos
@@ -20,7 +20,7 @@ npm install
 
 # 3. Migraciones y seed
 cd apps/api
-npx prisma migrate dev --name init
+npx prisma migrate dev
 npm run prisma:seed
 cd ../..
 
@@ -40,7 +40,21 @@ Abre http://localhost:5173
 | Admin | `admin@wandy.local` | `Admin123!` |
 | Profesional | `profesional@wandy.local` | `Prof123!` |
 
-## Variables de entorno
+## Despliegue en VPS
+
+Ver la guía completa: **[DEPLOY.md](DEPLOY.md)**
+
+Resumen:
+
+```bash
+cp .env.production.example .env.production
+# Edita secretos y CORS_ORIGIN
+./deploy/deploy.sh
+```
+
+Eso levanta Postgres + API + Nginx (frontend) con Docker.
+
+## Variables de entorno (desarrollo)
 
 Copia [`apps/api/.env.example`](apps/api/.env.example) a `apps/api/.env`:
 
@@ -49,6 +63,7 @@ DATABASE_URL="postgresql://wandy:wandy@127.0.0.1:5433/wandy?schema=public"
 JWT_SECRET="wandy-dev-secret-change-in-production"
 JWT_EXPIRES_IN="8h"
 PORT=3000
+CORS_ORIGIN="http://localhost:5173"
 ```
 
 ## Funcionalidades
@@ -60,14 +75,16 @@ PORT=3000
 - Plantillas de fases eriksonianas e ítems editables
 - Historia clínica por paciente con evaluación 1–5, versionado e historial con nota aclaratoria obligatoria al editar
 - Calificación global = promedio de las fases evaluadas (vigentes)
+- Dashboard con totales y progreso por fases
 
 ## API principal
 
 - `POST /api/auth/login` · `GET /api/auth/me`
+- `GET /api/dashboard`
 - `CRUD /api/patient-types`
 - `CRUD /api/professionals`
 - `CRUD /api/patients`
 - `CRUD /api/phase-templates` (+ ítems)
-- `GET /api/patients/:id/clinical-history`
+- `GET|PATCH /api/patients/:id/clinical-history`
 - `POST /api/patients/:id/phases/:phaseId/versions`
 - `GET /api/patients/:id/phases/:phaseId/versions`

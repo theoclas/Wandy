@@ -3,11 +3,13 @@ dist
 build
 .env
 .env.local
+.env.production
 *.log
 coverage
 .DS_Store
 apps/api/generated
 *.tmp
 .vite
+tsconfig.tsbuildinfo
 
 tsconfig.tsbuildinfo

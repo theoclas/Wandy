@@ -54,6 +54,8 @@ pm2 logs wandy-api
 pm2 restart all
 ```
 
+Si ya tenías el stack Docker completo levantado y quieres pasar a PM2, ver: [deploy/pasar-a-pm2.md](deploy/pasar-a-pm2.md).
+
 ---
 
 ## Opción B — Docker completo (API + Web + Postgres)

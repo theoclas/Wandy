@@ -2,21 +2,19 @@
 set -e
 
 export PATH="/app/node_modules/.bin:$PATH"
+cd /app/apps/api
 
-echo "Waiting for database..."
+echo "Waiting for database and applying migrations..."
 i=0
-until node -e "const {PrismaClient}=require('@prisma/client'); const p=new PrismaClient(); p.\$connect().then(()=>p.\$disconnect()).then(()=>process.exit(0)).catch(()=>process.exit(1))" ; do
+until npx prisma migrate deploy --schema=./prisma/schema.prisma; do
   i=$((i + 1))
   if [ "$i" -gt 30 ]; then
-    echo "Database not ready after 60s"
+    echo "Database/migrations failed after 60s"
     exit 1
   fi
   echo "DB not ready, retry $i..."
   sleep 2
 done
-
-echo "Running migrations..."
-npx prisma migrate deploy --schema=./prisma/schema.prisma
 
 if [ "${RUN_SEED:-false}" = "true" ]; then
   echo "Seeding database..."

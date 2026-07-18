@@ -11,5 +11,9 @@ apps/api/generated
 *.tmp
 .vite
 tsconfig.tsbuildinfo
+**/tsconfig.build.tsbuildinfo
+apps/api/prisma/seed.js
+apps/api/prisma/seed.d.ts
+apps/api/prisma/seed.js.map
 
 tsconfig.tsbuildinfo

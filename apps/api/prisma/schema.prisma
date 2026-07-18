@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  PROFESSIONAL
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNSPECIFIED
+}
+
+enum PatientPhaseStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  professional         Professional?
+  phaseVersionsCreated PatientPhaseVersion[]
+}
+
+model Professional {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  document     String   @unique
+  phone        String?
+  email        String?
+  address      String?
+  gender       Gender   @default(UNSPECIFIED)
+  specialty    String?
+  active       Boolean  @default(true)
+  userId       String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patients Patient[]
+}
+
+model PatientType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patients Patient[]
+}
+
+model Patient {
+  id              String   @id @default(uuid())
+  firstName       String
+  lastName        String
+  document        String   @unique
+  phone           String?
+  email           String?
+  address         String?
+  gender          Gender   @default(UNSPECIFIED)
+  birthDate       DateTime @db.Date
+  systemEntryDate DateTime @default(now()) @db.Date
+  centerEntryDate DateTime @db.Date
+  patientTypeId   String
+  professionalId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patientType     PatientType      @relation(fields: [patientTypeId], references: [id])
+  professional    Professional?    @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+  clinicalHistory ClinicalHistory?
+}
+
+model PhaseTemplate {
+  id          String   @id @default(uuid())
+  sortOrder   Int
+  name        String
+  crisis      String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items         PhaseItemTemplate[]
+  patientPhases PatientPhase[]
+}
+
+model PhaseItemTemplate {
+  id              String   @id @default(uuid())
+  phaseTemplateId String
+  sortOrder       Int
+  label           String
+  description     String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  phaseTemplate PhaseTemplate           @relation(fields: [phaseTemplateId], references: [id], onDelete: Cascade)
+  itemScores    PatientPhaseItemScore[]
+}
+
+model ClinicalHistory {
+  id          String   @id @default(uuid())
+  patientId   String   @unique
+  historyDate DateTime @default(now()) @db.Date
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  phases  PatientPhase[]
+}
+
+model PatientPhase {
+  id                String             @id @default(uuid())
+  clinicalHistoryId String
+  phaseTemplateId   String
+  status            PatientPhaseStatus @default(PENDING)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  clinicalHistory ClinicalHistory       @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
+  phaseTemplate   PhaseTemplate         @relation(fields: [phaseTemplateId], references: [id])
+  versions        PatientPhaseVersion[]
+
+  @@unique([clinicalHistoryId, phaseTemplateId])
+}
+
+model PatientPhaseVersion {
+  id                String   @id @default(uuid())
+  patientPhaseId    String
+  versionNumber     Int
+  isCurrent         Boolean  @default(true)
+  score             Float
+  evaluationDate    DateTime @default(now()) @db.Date
+  notes             String?
+  clarificationNote String?
+  createdById       String
+  createdAt         DateTime @default(now())
+
+  patientPhase PatientPhase            @relation(fields: [patientPhaseId], references: [id], onDelete: Cascade)
+  createdBy    User                    @relation(fields: [createdById], references: [id])
+  itemScores   PatientPhaseItemScore[]
+
+  @@unique([patientPhaseId, versionNumber])
+}
+
+model PatientPhaseItemScore {
+  id                    String @id @default(uuid())
+  patientPhaseVersionId String
+  phaseItemTemplateId   String
+  score                 Int
+
+  version           PatientPhaseVersion @relation(fields: [patientPhaseVersionId], references: [id], onDelete: Cascade)
+  phaseItemTemplate PhaseItemTemplate   @relation(fields: [phaseItemTemplateId], references: [id])
+
+  @@unique([patientPhaseVersionId, phaseItemTemplateId])
+}

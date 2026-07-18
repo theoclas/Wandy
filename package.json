@@ -1,0 +1,19 @@
+{
+  "name": "wandy",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run start:dev -w api",
+    "dev:web": "npm run dev -w web",
+    "build:api": "npm run build -w api",
+    "build:web": "npm run build -w web",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "prisma:generate": "npm run prisma:generate -w api",
+    "prisma:migrate": "npm run prisma:migrate -w api",
+    "prisma:seed": "npm run prisma:seed -w api"
+  }
+}

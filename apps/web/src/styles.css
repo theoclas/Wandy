@@ -159,31 +159,31 @@ label {
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: 1.25rem;
+  place-items: stretch;
+  padding: 0;
   animation: fadeIn 0.5s ease;
-  background:
-    radial-gradient(circle at 8% 12%, rgba(30, 77, 216, 0.08), transparent 28%),
-    radial-gradient(circle at 92% 88%, rgba(245, 197, 24, 0.12), transparent 26%),
-    linear-gradient(160deg, #f4f8ff 0%, #eef4fb 48%, #f8fbff 100%);
+  background: #0b1f4a;
 }
 
 .login-shell {
-  width: min(1120px, 100%);
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(320px, 420px) 1fr;
-  gap: 1.5rem;
+  grid-template-columns: minmax(340px, 420px) 1fr;
+  gap: 0;
   align-items: stretch;
 }
 
 .login-card {
   background: #fff;
-  border-radius: 28px;
-  padding: 2rem 1.75rem 1.5rem;
-  box-shadow: 0 24px 60px rgba(11, 31, 74, 0.12);
+  border-radius: 0;
+  padding: 2.25rem 2rem 1.75rem;
+  box-shadow: 12px 0 40px rgba(11, 31, 74, 0.18);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  z-index: 2;
 }
 
 .login-card-brand {
@@ -337,141 +337,28 @@ label {
 .login-hero {
   position: relative;
   overflow: hidden;
-  border-radius: 28px;
-  min-height: 560px;
-  color: #fff;
-  box-shadow: 0 24px 60px rgba(11, 31, 74, 0.16);
-}
-
-.login-hero-media {
-  position: absolute;
-  inset: 0;
+  min-height: 100%;
   background:
-    linear-gradient(180deg, rgba(10, 28, 70, 0.18) 0%, rgba(10, 28, 70, 0.45) 100%),
-    url('/login/login-hero.jpg') center / cover no-repeat;
-}
-
-.login-hero-watermark {
-  position: absolute;
-  left: 50%;
-  top: 42%;
-  transform: translate(-50%, -50%);
-  width: min(280px, 48%);
-  opacity: 0.22;
-  filter: brightness(1.2);
-  pointer-events: none;
-}
-
-.login-hero-pillars {
-  position: absolute;
-  right: 1.4rem;
-  top: 50%;
-  transform: translateY(-50%);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-  z-index: 1;
-}
-
-.login-hero-pillars li {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-}
-
-.login-pillar-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(4px);
-  color: #fff;
-}
-
-.login-hero-quote {
-  position: absolute;
-  left: 1.5rem;
-  right: 1.5rem;
-  bottom: 1.5rem;
-  margin: 0;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
-}
-
-.login-hero-quote span {
-  font-size: 1.05rem;
-  font-weight: 500;
-}
-
-.login-hero-quote em {
-  font-family: 'Caveat', cursive;
-  font-style: normal;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--login-yellow);
-  line-height: 1;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.18em;
+    linear-gradient(90deg, rgba(11, 31, 74, 0.18) 0%, transparent 18%),
+    url('/login/login-hero.jpg') center center / cover no-repeat;
 }
 
 @media (max-width: 900px) {
   .login-shell {
     grid-template-columns: 1fr;
-    max-width: 460px;
+  }
+
+  .login-card {
+    order: 1;
+    min-height: auto;
+    padding: 1.75rem 1.35rem 1.5rem;
+    box-shadow: 0 -12px 32px rgba(11, 31, 74, 0.18);
   }
 
   .login-hero {
-    min-height: 280px;
-    order: -1;
-  }
-
-  .login-hero-pillars {
-    flex-direction: row;
-    right: auto;
-    left: 50%;
-    top: auto;
-    bottom: 4.6rem;
-    transform: translateX(-50%);
-    gap: 0.85rem;
-  }
-
-  .login-hero-pillars li {
-    font-size: 0.58rem;
-  }
-
-  .login-pillar-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .login-hero-quote {
-    text-align: center;
-    bottom: 0.9rem;
-  }
-
-  .login-hero-quote em {
-    font-size: 1.55rem;
-  }
-
-  .login-hero-watermark {
-    width: min(180px, 42%);
-    top: 38%;
+    order: 0;
+    min-height: 42vh;
+    background-position: center 35%;
   }
 }
 
@@ -514,8 +401,8 @@ label {
   height: 44px;
   object-fit: contain;
   border-radius: 10px;
-  background: #fff;
-  padding: 4px;
+  background: transparent;
+  padding: 2px;
   flex-shrink: 0;
 }
 

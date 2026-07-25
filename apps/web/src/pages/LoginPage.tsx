@@ -165,74 +165,11 @@ export function LoginPage() {
           </p>
         </section>
 
-        <section className="login-hero" aria-hidden="true">
-          <div className="login-hero-media" />
-          <img
-            src="/icon-512.png"
-            alt=""
-            className="login-hero-watermark"
-          />
-          <ul className="login-hero-pillars">
-            <li>
-              <span className="login-pillar-icon">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                  <path
-                    d="M12 4c-3 2.2-5 5-5 8a5 5 0 0 0 10 0c0-3-2-5.8-5-8Z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                  <path d="M9 13h6M10 16h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                </svg>
-              </span>
-              Mente
-            </li>
-            <li>
-              <span className="login-pillar-icon">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                  <path
-                    d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                  />
-                </svg>
-              </span>
-              Emoción
-            </li>
-            <li>
-              <span className="login-pillar-icon">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                  <circle cx="9" cy="8" r="2.4" stroke="currentColor" strokeWidth="1.6" />
-                  <circle cx="15.5" cy="8.5" r="2.1" stroke="currentColor" strokeWidth="1.6" />
-                  <path
-                    d="M4.5 18c.8-2.4 2.6-3.6 4.5-3.6s3.5 1 4.4 2.8M13 14.8c.8-.5 1.8-.8 2.8-.8 1.8 0 3.3 1 4.2 3"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-              Apoyo
-            </li>
-            <li>
-              <span className="login-pillar-icon">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                  <path
-                    d="M12 20V10M12 10c1.5-2 3.5-3 5-3-.5 2.5-2 4-5 5M12 10c-1.5-2-3.5-3-5-3 .5 2.5 2 4 5 5"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-              Transformación
-            </li>
-          </ul>
-          <p className="login-hero-quote">
-            <span>Acompañamos procesos,</span>
-            <em>transformamos vidas.</em>
-          </p>
-        </section>
+        <section
+          className="login-hero"
+          aria-label="Corporación Destellos"
+          role="img"
+        />
       </div>
     </div>
   );

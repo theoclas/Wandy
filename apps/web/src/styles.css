@@ -797,6 +797,12 @@ tr:last-child td {
   width: 5.5rem;
 }
 
+.subgroup-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.85rem;
+}
+
 .criteria-catalog {
   margin: 0.5rem 0 0;
   padding-left: 1.2rem;

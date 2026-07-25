@@ -18,7 +18,7 @@ export function PatientDetailPage() {
   const [history, setHistory] = useState<ScoreChangeLog[]>([]);
   const [historyDate, setHistoryDate] = useState('');
   const [savingHistoryDate, setSavingHistoryDate] = useState(false);
-  const [savingCriterionId, setSavingCriterionId] = useState<string | null>(
+  const [savingSubgroupId, setSavingSubgroupId] = useState<string | null>(
     null,
   );
   const [draftScores, setDraftScores] = useState<Record<string, string>>({});
@@ -70,38 +70,59 @@ export function PatientDetailPage() {
     }
   }
 
-  async function saveCriterion(criterionScoreId: string) {
+  async function saveSubgroup(
+    subgroupId: string,
+    criteria: { id: string; score: number }[],
+  ) {
     if (!id) return;
-    const raw = draftScores[criterionScoreId];
-    const score = Number(raw);
-    if (Number.isNaN(score) || score < 0 || score > 5) {
-      setError('La calificación debe ser un número entre 0 y 5');
+
+    const toSave: { id: string; score: number }[] = [];
+    for (const c of criteria) {
+      const raw = draftScores[c.id];
+      const score = Number(raw);
+      if (Number.isNaN(score) || score < 0 || score > 5) {
+        setError('Todas las calificaciones deben ser números entre 0 y 5');
+        return;
+      }
+      if (score !== c.score) {
+        toSave.push({ id: c.id, score });
+      }
+    }
+
+    if (toSave.length === 0) {
+      setError('');
       return;
     }
-    setSavingCriterionId(criterionScoreId);
+
+    setSavingSubgroupId(subgroupId);
     setError('');
     try {
-      const result = await api<ClinicalHistoryView>(
-        `/patients/${id}/criteria/${criterionScoreId}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ score }),
-        },
-      );
-      setData(result);
-      const drafts: Record<string, string> = {};
-      for (const phase of result.phases) {
-        for (const sg of phase.subgroups) {
-          for (const c of sg.criteria) {
-            drafts[c.id] = String(c.score);
+      let result: ClinicalHistoryView | null = null;
+      for (const item of toSave) {
+        result = await api<ClinicalHistoryView>(
+          `/patients/${id}/criteria/${item.id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ score: item.score }),
+          },
+        );
+      }
+      if (result) {
+        setData(result);
+        const drafts: Record<string, string> = {};
+        for (const phase of result.phases) {
+          for (const sg of phase.subgroups) {
+            for (const c of sg.criteria) {
+              drafts[c.id] = String(c.score);
+            }
           }
         }
+        setDraftScores(drafts);
       }
-      setDraftScores(drafts);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
     } finally {
-      setSavingCriterionId(null);
+      setSavingSubgroupId(null);
     }
   }
 
@@ -303,13 +324,6 @@ export function PatientDetailPage() {
                         />
                         <button
                           type="button"
-                          disabled={!editable || savingCriterionId === c.id}
-                          onClick={() => void saveCriterion(c.id)}
-                        >
-                          {savingCriterionId === c.id ? '…' : 'Guardar'}
-                        </button>
-                        <button
-                          type="button"
                           className="secondary"
                           onClick={() =>
                             void openHistory(c.id, c.criterionTemplate.label)
@@ -322,6 +336,25 @@ export function PatientDetailPage() {
                   );
                 })}
               </div>
+
+              {activePhase.unlocked && sg.unlocked && (
+                <div className="subgroup-actions">
+                  <button
+                    type="button"
+                    disabled={savingSubgroupId === sg.id}
+                    onClick={() =>
+                      void saveSubgroup(
+                        sg.id,
+                        sg.criteria.map((c) => ({ id: c.id, score: c.score })),
+                      )
+                    }
+                  >
+                    {savingSubgroupId === sg.id
+                      ? 'Guardando…'
+                      : 'Guardar calificaciones'}
+                  </button>
+                </div>
+              )}
             </section>
           ))}
         </div>

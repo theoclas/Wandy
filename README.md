@@ -1,6 +1,8 @@
-# Wandy — Historia clínica eriksoniana
+# Wandy — Historia clínica (fases Destellos)
 
 Monorepo con API NestJS + Prisma (PostgreSQL) y frontend React (Vite).
+
+Evaluación por fases: **Destellos → Iluminación → Resplandor → Esplendor**, con subgrupos/criterios, calificaciones 0–5 y desbloqueos.
 
 ## Requisitos
 
@@ -87,7 +89,7 @@ CORS_ORIGIN="http://localhost:5173"
 - Profesionales con usuario y contraseña
 - Pacientes con fechas: nacimiento (editable), ingreso al centro (editable), ingreso al sistema (solo lectura)
 - Catálogo de tipos de paciente (admin)
-- Plantillas de fases eriksonianas e ítems editables
+- Plantillas de las 4 fases Destellos (catálogo de consulta)
 - Historia clínica por paciente con evaluación 1–5, versionado e historial con nota aclaratoria obligatoria al editar
 - Calificación global = promedio de las fases evaluadas (vigentes)
 - Dashboard con totales y progreso por fases

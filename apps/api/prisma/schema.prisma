@@ -25,6 +25,14 @@ enum PatientPhaseStatus {
   COMPLETED
 }
 
+/// Cómo se desbloquean los subgrupos dentro de una fase.
+enum PhaseUnlockMode {
+  /// Todos los subgrupos editables a la vez (Destellos, Esplendor).
+  ALL_OPEN
+  /// Se desbloquean por unlockRank ascendente (1 → 2 → 3…).
+  SEQUENTIAL
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -33,8 +41,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  professional         Professional?
-  phaseVersionsCreated PatientPhaseVersion[]
+  professional  Professional?
+  scoreChanges  ScoreChangeLog[]
 }
 
 model Professional {
@@ -90,31 +98,53 @@ model Patient {
 }
 
 model PhaseTemplate {
-  id          String   @id @default(uuid())
-  sortOrder   Int
+  id          String          @id @default(uuid())
+  sortOrder   Int             @unique
   name        String
-  crisis      String
   description String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  unlockMode  PhaseUnlockMode @default(ALL_OPEN)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
-  items         PhaseItemTemplate[]
+  subgroups     SubgroupTemplate[]
   patientPhases PatientPhase[]
 }
 
-model PhaseItemTemplate {
+model SubgroupTemplate {
   id              String   @id @default(uuid())
   phaseTemplateId String
   sortOrder       Int
-  label           String
-  description     String?
+  /// Orden de desbloqueo interno (1 = primero). Solo aplica si la fase es SEQUENTIAL.
+  unlockRank      Int      @default(1)
+  name            String
+  purpose         String?
+  /// Si true, la UI no muestra el título del subgrupo (Esplendor).
+  hideInUi        Boolean  @default(false)
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  phaseTemplate PhaseTemplate           @relation(fields: [phaseTemplateId], references: [id], onDelete: Cascade)
-  itemScores    PatientPhaseItemScore[]
+  phaseTemplate    PhaseTemplate          @relation(fields: [phaseTemplateId], references: [id], onDelete: Cascade)
+  criteria         CriterionTemplate[]
+  patientSubgroups PatientSubgroup[]
+
+  @@unique([phaseTemplateId, sortOrder])
+}
+
+model CriterionTemplate {
+  id                 String   @id @default(uuid())
+  subgroupTemplateId String
+  sortOrder          Int
+  label              String
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  subgroupTemplate SubgroupTemplate         @relation(fields: [subgroupTemplateId], references: [id], onDelete: Cascade)
+  scores           PatientCriterionScore[]
+
+  @@unique([subgroupTemplateId, sortOrder])
 }
 
 model ClinicalHistory {
@@ -136,40 +166,50 @@ model PatientPhase {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  clinicalHistory ClinicalHistory       @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
-  phaseTemplate   PhaseTemplate         @relation(fields: [phaseTemplateId], references: [id])
-  versions        PatientPhaseVersion[]
+  clinicalHistory ClinicalHistory   @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
+  phaseTemplate   PhaseTemplate     @relation(fields: [phaseTemplateId], references: [id])
+  subgroups       PatientSubgroup[]
 
   @@unique([clinicalHistoryId, phaseTemplateId])
 }
 
-model PatientPhaseVersion {
-  id                String   @id @default(uuid())
-  patientPhaseId    String
-  versionNumber     Int
-  isCurrent         Boolean  @default(true)
-  score             Float
-  evaluationDate    DateTime @default(now()) @db.Date
-  notes             String?
-  clarificationNote String?
-  createdById       String
-  createdAt         DateTime @default(now())
+model PatientSubgroup {
+  id                 String   @id @default(uuid())
+  patientPhaseId     String
+  subgroupTemplateId String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  patientPhase PatientPhase            @relation(fields: [patientPhaseId], references: [id], onDelete: Cascade)
-  createdBy    User                    @relation(fields: [createdById], references: [id])
-  itemScores   PatientPhaseItemScore[]
+  patientPhase     PatientPhase             @relation(fields: [patientPhaseId], references: [id], onDelete: Cascade)
+  subgroupTemplate SubgroupTemplate         @relation(fields: [subgroupTemplateId], references: [id])
+  criterionScores  PatientCriterionScore[]
 
-  @@unique([patientPhaseId, versionNumber])
+  @@unique([patientPhaseId, subgroupTemplateId])
 }
 
-model PatientPhaseItemScore {
-  id                    String @id @default(uuid())
-  patientPhaseVersionId String
-  phaseItemTemplateId   String
-  score                 Int
+model PatientCriterionScore {
+  id                  String   @id @default(uuid())
+  patientSubgroupId   String
+  criterionTemplateId String
+  score               Float    @default(0)
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
 
-  version           PatientPhaseVersion @relation(fields: [patientPhaseVersionId], references: [id], onDelete: Cascade)
-  phaseItemTemplate PhaseItemTemplate   @relation(fields: [phaseItemTemplateId], references: [id])
+  patientSubgroup   PatientSubgroup    @relation(fields: [patientSubgroupId], references: [id], onDelete: Cascade)
+  criterionTemplate CriterionTemplate  @relation(fields: [criterionTemplateId], references: [id])
+  changeLogs        ScoreChangeLog[]
 
-  @@unique([patientPhaseVersionId, phaseItemTemplateId])
+  @@unique([patientSubgroupId, criterionTemplateId])
+}
+
+model ScoreChangeLog {
+  id                      String   @id @default(uuid())
+  patientCriterionScoreId String
+  previousScore           Float
+  newScore                Float
+  changedAt               DateTime @default(now())
+  changedById             String
+
+  patientCriterionScore PatientCriterionScore @relation(fields: [patientCriterionScoreId], references: [id], onDelete: Cascade)
+  changedBy             User                  @relation(fields: [changedById], references: [id])
 }

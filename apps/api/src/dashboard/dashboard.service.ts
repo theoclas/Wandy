@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { APPROVAL_THRESHOLD } from '../clinical-histories/clinical-histories.service';
 
-function round1(n: number) {
-  return Math.round(n * 10) / 10;
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+function average(values: number[]): number {
+  if (!values.length) return 0;
+  return round2(values.reduce((a, b) => a + b, 0) / values.length);
 }
 
 @Injectable()
@@ -10,49 +16,38 @@ export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
   async getStats() {
-    const [
-      patients,
-      professionals,
-      patientTypes,
-      phaseTemplates,
-      clinicalHistories,
-    ] = await Promise.all([
-      this.prisma.patient.count(),
-      this.prisma.professional.count({ where: { active: true } }),
-      this.prisma.patientType.count({ where: { active: true } }),
-      this.prisma.phaseTemplate.findMany({
-        where: { active: true },
-        orderBy: { sortOrder: 'asc' },
-        include: {
-          _count: { select: { patientPhases: true } },
-        },
-      }),
-      this.prisma.clinicalHistory.findMany({
-        include: {
-          patient: {
-            include: { patientType: true },
-          },
-          phases: {
-            include: {
-              phaseTemplate: true,
-              versions: {
-                where: { isCurrent: true },
-                take: 1,
+    const [patients, professionals, patientTypes, phaseTemplates, histories] =
+      await Promise.all([
+        this.prisma.patient.count(),
+        this.prisma.professional.count({ where: { active: true } }),
+        this.prisma.patientType.count({ where: { active: true } }),
+        this.prisma.phaseTemplate.findMany({
+          where: { active: true },
+          orderBy: { sortOrder: 'asc' },
+        }),
+        this.prisma.clinicalHistory.findMany({
+          include: {
+            patient: { include: { patientType: true } },
+            phases: {
+              include: {
+                phaseTemplate: true,
+                subgroups: {
+                  include: { criterionScores: true },
+                },
               },
+              orderBy: { phaseTemplate: { sortOrder: 'asc' } },
             },
-            orderBy: { phaseTemplate: { sortOrder: 'asc' } },
           },
-        },
-        orderBy: { updatedAt: 'desc' },
-      }),
-    ]);
+          orderBy: { updatedAt: 'desc' },
+        }),
+      ]);
 
     const phaseStats = phaseTemplates.map((template) => {
-      let completedCount = 0;
+      let approvedCount = 0;
       let pendingCount = 0;
       const scores: number[] = [];
 
-      for (const history of clinicalHistories) {
+      for (const history of histories) {
         const phase = history.phases.find(
           (p) => p.phaseTemplateId === template.id,
         );
@@ -60,42 +55,48 @@ export class DashboardService {
           pendingCount += 1;
           continue;
         }
-        if (phase.versions[0]) {
-          completedCount += 1;
-          scores.push(phase.versions[0].score);
-        } else {
-          pendingCount += 1;
-        }
+        const subgroupAvgs = phase.subgroups.map((sg) =>
+          average(sg.criterionScores.map((c) => c.score)),
+        );
+        const phaseScore = average(subgroupAvgs);
+        scores.push(phaseScore);
+        if (phaseScore > APPROVAL_THRESHOLD) approvedCount += 1;
+        else pendingCount += 1;
       }
 
       return {
         id: template.id,
         sortOrder: template.sortOrder,
         name: template.name,
-        crisis: template.crisis,
-        completedCount,
+        description: template.description,
+        approvedCount,
         pendingCount,
         averageScore:
           scores.length > 0
-            ? round1(scores.reduce((a, b) => a + b, 0) / scores.length)
+            ? round2(scores.reduce((a, b) => a + b, 0) / scores.length)
             : null,
       };
     });
 
     const typeMap = new Map<string, number>();
-    const patientProgress = clinicalHistories.map((history) => {
+    const patientProgress = histories.map((history) => {
       const typeName = history.patient.patientType.name;
       typeMap.set(typeName, (typeMap.get(typeName) || 0) + 1);
 
-      const completed = history.phases.filter((p) => p.versions[0]);
-      const pending = history.phases.filter((p) => !p.versions[0]);
-      const scores = completed.map((p) => p.versions[0].score);
-      const globalScore =
-        scores.length > 0
-          ? round1(scores.reduce((a, b) => a + b, 0) / scores.length)
-          : null;
+      const phaseScores = history.phases.map((phase) => {
+        const subgroupAvgs = phase.subgroups.map((sg) =>
+          average(sg.criterionScores.map((c) => c.score)),
+        );
+        return {
+          phase,
+          score: average(subgroupAvgs),
+        };
+      });
 
-      const lastCompleted = completed[completed.length - 1];
+      const approved = phaseScores.filter((p) => p.score > APPROVAL_THRESHOLD);
+      const pending = phaseScores.filter((p) => p.score <= APPROVAL_THRESHOLD);
+      const globalScore = average(phaseScores.map((p) => p.score));
+      const lastApproved = approved[approved.length - 1];
       const nextPending = pending[0];
 
       return {
@@ -104,42 +105,38 @@ export class DashboardService {
         lastName: history.patient.lastName,
         document: history.patient.document,
         patientType: typeName,
-        completedPhases: completed.length,
+        completedPhases: approved.length,
         totalPhases: history.phases.length,
         pendingPhases: pending.length,
         globalScore,
         currentPhase: nextPending
           ? {
-              name: nextPending.phaseTemplate.name,
-              sortOrder: nextPending.phaseTemplate.sortOrder,
+              name: nextPending.phase.phaseTemplate.name,
+              sortOrder: nextPending.phase.phaseTemplate.sortOrder,
               status: 'PENDING' as const,
+              score: nextPending.score,
             }
-          : lastCompleted
+          : lastApproved
             ? {
-                name: lastCompleted.phaseTemplate.name,
-                sortOrder: lastCompleted.phaseTemplate.sortOrder,
+                name: lastApproved.phase.phaseTemplate.name,
+                sortOrder: lastApproved.phase.phaseTemplate.sortOrder,
                 status: 'COMPLETED' as const,
+                score: lastApproved.score,
               }
             : null,
-        lastCompletedPhase: lastCompleted
+        lastCompletedPhase: lastApproved
           ? {
-              name: lastCompleted.phaseTemplate.name,
-              sortOrder: lastCompleted.phaseTemplate.sortOrder,
-              score: lastCompleted.versions[0].score,
+              name: lastApproved.phase.phaseTemplate.name,
+              sortOrder: lastApproved.phase.phaseTemplate.sortOrder,
+              score: lastApproved.score,
             }
           : null,
       };
     });
 
-    const withEval = patientProgress.filter((p) => p.completedPhases > 0);
-    const globalScores = withEval
-      .map((p) => p.globalScore)
-      .filter((s): s is number => s !== null);
-
-    const totalEvaluations = phaseStats.reduce(
-      (acc, p) => acc + p.completedCount,
-      0,
-    );
+    const withProgress = patientProgress.filter((p) => p.globalScore > 0);
+    const globalScores = patientProgress.map((p) => p.globalScore);
+    const scoreChanges = await this.prisma.scoreChangeLog.count();
 
     return {
       totals: {
@@ -147,17 +144,17 @@ export class DashboardService {
         professionals,
         patientTypes,
         phaseTemplates: phaseTemplates.length,
-        evaluations: totalEvaluations,
+        evaluations: scoreChanges,
       },
       scores: {
         averageGlobal:
           globalScores.length > 0
-            ? round1(
+            ? round2(
                 globalScores.reduce((a, b) => a + b, 0) / globalScores.length,
               )
             : null,
-        patientsWithEvaluations: withEval.length,
-        patientsWithoutEvaluations: patients - withEval.length,
+        patientsWithEvaluations: withProgress.length,
+        patientsWithoutEvaluations: patients - withProgress.length,
         fullyCompleted: patientProgress.filter(
           (p) => p.totalPhases > 0 && p.pendingPhases === 0,
         ).length,

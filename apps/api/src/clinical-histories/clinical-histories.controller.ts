@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Patch,
   Body,
   Param,
@@ -10,8 +9,8 @@ import {
 } from '@nestjs/common';
 import { ClinicalHistoriesService } from './clinical-histories.service';
 import {
-  CreatePhaseVersionDto,
   UpdateClinicalHistoryDto,
+  UpdateCriterionScoreDto,
 } from './dto/phase-version.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.decorator';
@@ -34,21 +33,26 @@ export class ClinicalHistoriesController {
     return this.service.updateHistoryDate(patientId, dto);
   }
 
-  @Get('phases/:phaseId/versions')
-  getVersions(
+  @Get('criteria/:criterionScoreId/history')
+  getCriterionHistory(
     @Param('patientId') patientId: string,
-    @Param('phaseId') phaseId: string,
+    @Param('criterionScoreId') criterionScoreId: string,
   ) {
-    return this.service.getPhaseVersions(patientId, phaseId);
+    return this.service.getCriterionHistory(patientId, criterionScoreId);
   }
 
-  @Post('phases/:phaseId/versions')
-  createVersion(
+  @Patch('criteria/:criterionScoreId')
+  updateCriterion(
     @Param('patientId') patientId: string,
-    @Param('phaseId') phaseId: string,
-    @Body() dto: CreatePhaseVersionDto,
+    @Param('criterionScoreId') criterionScoreId: string,
+    @Body() dto: UpdateCriterionScoreDto,
     @Req() req: { user: { id: string } },
   ) {
-    return this.service.createVersion(patientId, phaseId, req.user.id, dto);
+    return this.service.updateCriterionScore(
+      patientId,
+      criterionScoreId,
+      req.user.id,
+      dto,
+    );
   }
 }

@@ -48,53 +48,92 @@ export type Patient = {
   professional: { id: string; firstName: string; lastName: string } | null;
 };
 
-export type PhaseItemTemplate = {
+export type PhaseUnlockMode = 'ALL_OPEN' | 'SEQUENTIAL';
+
+export type CriterionTemplate = {
   id: string;
   sortOrder: number;
   label: string;
-  description: string | null;
-  active: boolean;
+  active?: boolean;
+};
+
+export type SubgroupTemplate = {
+  id: string;
+  sortOrder: number;
+  unlockRank: number;
+  name: string;
+  purpose: string | null;
+  hideInUi: boolean;
+  criteria: CriterionTemplate[];
 };
 
 export type PhaseTemplate = {
   id: string;
   sortOrder: number;
   name: string;
-  crisis: string;
   description: string | null;
-  active: boolean;
-  items: PhaseItemTemplate[];
+  unlockMode: PhaseUnlockMode;
+  active?: boolean;
+  subgroups: SubgroupTemplate[];
 };
 
-export type PhaseVersion = {
+export type PatientCriterionView = {
   id: string;
-  versionNumber: number;
-  isCurrent: boolean;
   score: number;
-  evaluationDate: string;
-  notes: string | null;
-  clarificationNote: string | null;
-  createdAt: string;
-  createdBy: { id: string; email: string };
-  itemScores: {
+  criterionTemplate: {
     id: string;
-    score: number;
-    phaseItemTemplateId: string;
-    phaseItemTemplate: PhaseItemTemplate;
-  }[];
+    sortOrder: number;
+    label: string;
+  };
+};
+
+export type PatientSubgroupView = {
+  id: string;
+  score: number;
+  approved: boolean;
+  unlocked: boolean;
+  subgroupTemplate: {
+    id: string;
+    sortOrder: number;
+    unlockRank: number;
+    name: string;
+    purpose: string | null;
+    hideInUi: boolean;
+  };
+  criteria: PatientCriterionView[];
+};
+
+export type PatientPhaseView = {
+  id: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  score: number;
+  approved: boolean;
+  unlocked: boolean;
+  phaseTemplate: {
+    id: string;
+    sortOrder: number;
+    name: string;
+    description: string | null;
+    unlockMode: PhaseUnlockMode;
+  };
+  subgroups: PatientSubgroupView[];
 };
 
 export type ClinicalHistoryView = {
   patient: Patient;
   clinicalHistoryId: string;
   historyDate: string;
-  globalScore: number | null;
-  phases: {
-    id: string;
-    status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
-    phaseTemplate: PhaseTemplate;
-    currentVersion: PhaseVersion | null;
-  }[];
+  globalScore: number;
+  approvalThreshold: number;
+  phases: PatientPhaseView[];
+};
+
+export type ScoreChangeLog = {
+  id: string;
+  previousScore: number;
+  newScore: number;
+  changedAt: string;
+  changedBy: { id: string; email: string; role: Role };
 };
 
 export type DashboardStats = {
@@ -115,8 +154,8 @@ export type DashboardStats = {
     id: string;
     sortOrder: number;
     name: string;
-    crisis: string;
-    completedCount: number;
+    description: string | null;
+    approvedCount: number;
     pendingCount: number;
     averageScore: number | null;
   }[];
@@ -135,6 +174,7 @@ export type DashboardStats = {
       name: string;
       sortOrder: number;
       status: 'PENDING' | 'COMPLETED';
+      score?: number;
     } | null;
     lastCompletedPhase: {
       name: string;
@@ -166,7 +206,9 @@ export async function api<T>(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const base = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '';
+  const base =
+    (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ||
+    '';
   const res = await fetch(`${base}/api${path}`, { ...options, headers });
   if (!res.ok) {
     let message = 'Error en la solicitud';

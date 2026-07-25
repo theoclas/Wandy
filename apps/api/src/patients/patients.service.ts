@@ -4,11 +4,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ClinicalHistoriesService } from '../clinical-histories/clinical-histories.service';
 import { CreatePatientDto, UpdatePatientDto } from './dto/patient.dto';
 
 @Injectable()
 export class PatientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private clinicalHistories: ClinicalHistoriesService,
+  ) {}
 
   findAll() {
     return this.prisma.patient.findMany({
@@ -37,53 +41,31 @@ export class PatientsService {
   }
 
   async create(dto: CreatePatientDto) {
-    const phaseTemplates = await this.prisma.phaseTemplate.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: 'asc' },
-    });
-
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const patient = await tx.patient.create({
-          data: {
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            document: dto.document,
-            phone: dto.phone,
-            email: dto.email,
-            address: dto.address,
-            gender: dto.gender,
-            birthDate: new Date(dto.birthDate),
-            centerEntryDate: new Date(dto.centerEntryDate),
-            patientTypeId: dto.patientTypeId,
-            professionalId: dto.professionalId,
+      const patient = await this.prisma.patient.create({
+        data: {
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          document: dto.document,
+          phone: dto.phone,
+          email: dto.email,
+          address: dto.address,
+          gender: dto.gender,
+          birthDate: new Date(dto.birthDate),
+          centerEntryDate: new Date(dto.centerEntryDate),
+          patientTypeId: dto.patientTypeId,
+          professionalId: dto.professionalId,
+        },
+        include: {
+          patientType: true,
+          professional: {
+            select: { id: true, firstName: true, lastName: true },
           },
-          include: {
-            patientType: true,
-            professional: {
-              select: { id: true, firstName: true, lastName: true },
-            },
-          },
-        });
-
-        const history = await tx.clinicalHistory.create({
-          data: {
-            patientId: patient.id,
-            historyDate: new Date(dto.centerEntryDate),
-          },
-        });
-
-        if (phaseTemplates.length) {
-          await tx.patientPhase.createMany({
-            data: phaseTemplates.map((phase) => ({
-              clinicalHistoryId: history.id,
-              phaseTemplateId: phase.id,
-            })),
-          });
-        }
-
-        return patient;
+        },
       });
+
+      await this.clinicalHistories.ensureHistory(patient.id);
+      return patient;
     } catch {
       throw new ConflictException(
         'No se pudo crear el paciente (documento duplicado o datos inválidos)',

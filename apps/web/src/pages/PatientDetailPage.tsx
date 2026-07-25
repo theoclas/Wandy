@@ -1,28 +1,27 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   api,
   type ClinicalHistoryView,
-  type PhaseVersion,
+  type ScoreChangeLog,
 } from '../api';
 
 export function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<ClinicalHistoryView | null>(null);
   const [error, setError] = useState('');
-  const [evaluatingPhaseId, setEvaluatingPhaseId] = useState<string | null>(
+  const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+  const [historyCriterionId, setHistoryCriterionId] = useState<string | null>(
     null,
   );
-  const [historyPhaseId, setHistoryPhaseId] = useState<string | null>(null);
-  const [history, setHistory] = useState<PhaseVersion[]>([]);
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [notes, setNotes] = useState('');
-  const [clarificationNote, setClarificationNote] = useState('');
-  const [evaluationDate, setEvaluationDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [historyLabel, setHistoryLabel] = useState('');
+  const [history, setHistory] = useState<ScoreChangeLog[]>([]);
   const [historyDate, setHistoryDate] = useState('');
   const [savingHistoryDate, setSavingHistoryDate] = useState(false);
+  const [savingCriterionId, setSavingCriterionId] = useState<string | null>(
+    null,
+  );
+  const [draftScores, setDraftScores] = useState<Record<string, string>>({});
 
   function toDateInput(value: string) {
     return value.slice(0, 10);
@@ -35,40 +34,24 @@ export function PatientDetailPage() {
     );
     setData(result);
     setHistoryDate(toDateInput(result.historyDate));
+    setActivePhaseId((prev) => {
+      if (prev && result.phases.some((p) => p.id === prev)) return prev;
+      return result.phases.find((p) => p.unlocked)?.id ?? result.phases[0]?.id ?? null;
+    });
+    const drafts: Record<string, string> = {};
+    for (const phase of result.phases) {
+      for (const sg of phase.subgroups) {
+        for (const c of sg.criteria) {
+          drafts[c.id] = String(c.score);
+        }
+      }
+    }
+    setDraftScores(drafts);
   }
 
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [id]);
-
-  function openEvaluate(phaseId: string) {
-    const phase = data?.phases.find((p) => p.id === phaseId);
-    if (!phase) return;
-    const initial: Record<string, number> = {};
-    for (const item of phase.phaseTemplate.items) {
-      const prev = phase.currentVersion?.itemScores.find(
-        (s) => s.phaseItemTemplateId === item.id,
-      );
-      initial[item.id] = prev?.score ?? 3;
-    }
-    setScores(initial);
-    setNotes(phase.currentVersion?.notes || '');
-    setClarificationNote('');
-    setEvaluationDate(
-      phase.currentVersion
-        ? toDateInput(phase.currentVersion.evaluationDate)
-        : new Date().toISOString().slice(0, 10),
-    );
-    setEvaluatingPhaseId(phaseId);
-  }
-
-  async function openHistory(phaseId: string) {
-    if (!id) return;
-    setHistoryPhaseId(phaseId);
-    setHistory(
-      await api<PhaseVersion[]>(`/patients/${id}/phases/${phaseId}/versions`),
-    );
-  }
 
   async function saveHistoryDate() {
     if (!id || !historyDate) return;
@@ -87,49 +70,69 @@ export function PatientDetailPage() {
     }
   }
 
-  async function submitEvaluation(e: FormEvent) {
-    e.preventDefault();
-    if (!id || !evaluatingPhaseId || !data) return;
+  async function saveCriterion(criterionScoreId: string) {
+    if (!id) return;
+    const raw = draftScores[criterionScoreId];
+    const score = Number(raw);
+    if (Number.isNaN(score) || score < 0 || score > 5) {
+      setError('La calificación debe ser un número entre 0 y 5');
+      return;
+    }
+    setSavingCriterionId(criterionScoreId);
     setError('');
-    const phase = data.phases.find((p) => p.id === evaluatingPhaseId);
-    const isEdit = Boolean(phase?.currentVersion);
     try {
-      await api(`/patients/${id}/phases/${evaluatingPhaseId}/versions`, {
-        method: 'POST',
-        body: JSON.stringify({
-          itemScores: Object.entries(scores).map(
-            ([phaseItemTemplateId, score]) => ({
-              phaseItemTemplateId,
-              score: Number(score),
-            }),
-          ),
-          evaluationDate,
-          notes: notes || undefined,
-          clarificationNote: isEdit ? clarificationNote : undefined,
-        }),
-      });
-      setEvaluatingPhaseId(null);
-      await load();
+      const result = await api<ClinicalHistoryView>(
+        `/patients/${id}/criteria/${criterionScoreId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ score }),
+        },
+      );
+      setData(result);
+      const drafts: Record<string, string> = {};
+      for (const phase of result.phases) {
+        for (const sg of phase.subgroups) {
+          for (const c of sg.criteria) {
+            drafts[c.id] = String(c.score);
+          }
+        }
+      }
+      setDraftScores(drafts);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setSavingCriterionId(null);
     }
+  }
+
+  async function openHistory(criterionScoreId: string, label: string) {
+    if (!id) return;
+    setHistoryCriterionId(criterionScoreId);
+    setHistoryLabel(label);
+    setHistory(
+      await api<ScoreChangeLog[]>(
+        `/patients/${id}/criteria/${criterionScoreId}/history`,
+      ),
+    );
   }
 
   if (!data) {
     return (
       <div>
-        {error ? <div className="error">{error}</div> : <p className="muted">Cargando…</p>}
+        {error ? (
+          <div className="error">{error}</div>
+        ) : (
+          <p className="muted">Cargando…</p>
+        )}
       </div>
     );
   }
 
-  const { patient, globalScore, phases } = data;
-  const evaluating = phases.find((p) => p.id === evaluatingPhaseId);
-  const completedCount = phases.filter((p) => p.currentVersion).length;
-  const pendingCount = phases.length - completedCount;
+  const { patient, globalScore, phases, approvalThreshold } = data;
+  const activePhase = phases.find((p) => p.id === activePhaseId) ?? phases[0];
+  const approvedCount = phases.filter((p) => p.approved).length;
   const progressPct =
-    phases.length > 0 ? Math.round((completedCount / phases.length) * 100) : 0;
-  const nextPhase = phases.find((p) => !p.currentVersion);
+    phases.length > 0 ? Math.round((approvedCount / phases.length) * 100) : 0;
   const genderLabel: Record<string, string> = {
     MALE: 'Masculino',
     FEMALE: 'Femenino',
@@ -148,286 +151,222 @@ export function PatientDetailPage() {
             {patient.firstName} {patient.lastName}
           </h1>
           <p className="muted">
-            Doc. {patient.document} · {patient.patientType.name}
+            Doc. {patient.document} · {patient.patientType.name} ·{' '}
+            {genderLabel[patient.gender] || patient.gender}
           </p>
         </div>
-        <div className="score-badge" title="Promedio de fases evaluadas">
-          {globalScore !== null ? globalScore.toFixed(1) : '—'}
-          <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>/ 5</span>
+        <div className="score-badge">
+          <span className="muted">Nota global</span>
+          <strong>{globalScore.toFixed(2)}</strong>
         </div>
       </div>
 
       {error && <div className="error">{error}</div>}
 
-      <div className="stat-grid" style={{ marginBottom: '1.25rem' }}>
-        <div className="stat-card">
-          <span className="stat-label">Progreso</span>
-          <strong className="stat-value">{progressPct}%</strong>
-          <div className="mini-progress" style={{ maxWidth: '100%', marginTop: 4 }}>
-            <div className="mini-progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-          <span className="muted">
-            {completedCount} de {phases.length} fases
-          </span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Completadas</span>
-          <strong className="stat-value">{completedCount}</strong>
-          <span className="muted">{pendingCount} pendientes</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Fase actual</span>
-          <strong style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>
-            {nextPhase
-              ? `${nextPhase.phaseTemplate.sortOrder}. ${nextPhase.phaseTemplate.name}`
-              : completedCount > 0
-                ? 'Todas completadas'
-                : 'Sin iniciar'}
-          </strong>
-          <span className="muted">
-            {nextPhase ? 'Siguiente a evaluar' : 'Historia al día'}
-          </span>
-        </div>
-      </div>
-
       <div className="panel">
-        <h2>Historia clínica</h2>
-        <div className="form-grid">
-          <div className="field">
-            <label>Fecha de la historia</label>
-            <input
-              type="date"
-              value={historyDate}
-              onChange={(e) => setHistoryDate(e.target.value)}
-            />
-          </div>
-          <div className="field" style={{ alignSelf: 'end' }}>
-            <button
-              type="button"
-              onClick={saveHistoryDate}
-              disabled={savingHistoryDate}
-            >
-              {savingHistoryDate ? 'Guardando…' : 'Guardar fecha'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="panel">
-        <h2>Datos del paciente</h2>
-        <div className="form-grid">
-          <div>
-            <span className="muted">Nacimiento</span>
-            <div>{patient.birthDate.slice(0, 10)}</div>
-          </div>
-          <div>
-            <span className="muted">Ingreso al centro</span>
-            <div>{patient.centerEntryDate.slice(0, 10)}</div>
-          </div>
-          <div>
-            <span className="muted">Ingreso al sistema</span>
-            <div>{patient.systemEntryDate.slice(0, 10)}</div>
-          </div>
-          <div>
-            <span className="muted">Género</span>
-            <div>{genderLabel[patient.gender] || patient.gender}</div>
-          </div>
-          <div>
-            <span className="muted">Teléfono</span>
-            <div>{patient.phone || '—'}</div>
-          </div>
-          <div>
-            <span className="muted">Email</span>
-            <div>{patient.email || '—'}</div>
-          </div>
-          <div>
-            <span className="muted">Dirección</span>
-            <div>{patient.address || '—'}</div>
-          </div>
+        <div className="info-grid">
           <div>
             <span className="muted">Profesional</span>
-            <div>
+            <p>
               {patient.professional
                 ? `${patient.professional.firstName} ${patient.professional.lastName}`
                 : 'Sin asignar'}
+            </p>
+          </div>
+          <div>
+            <span className="muted">Ingreso al centro</span>
+            <p>{toDateInput(patient.centerEntryDate)}</p>
+          </div>
+          <div>
+            <span className="muted">Fecha HC</span>
+            <div className="inline-form">
+              <input
+                type="date"
+                value={historyDate}
+                onChange={(e) => setHistoryDate(e.target.value)}
+              />
+              <button
+                type="button"
+                className="secondary"
+                disabled={savingHistoryDate}
+                onClick={() => void saveHistoryDate()}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+          <div>
+            <span className="muted">Progreso (promedio &gt; {approvalThreshold})</span>
+            <p>
+              {approvedCount}/{phases.length} fases · {progressPct}%
+            </p>
+            <div className="progress-track">
+              <div
+                className="progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      <h2 style={{ marginBottom: '0.75rem' }}>Fases eriksonianas</h2>
-      <div className="phase-list">
-        {phases.map((phase) => {
-          const done = Boolean(phase.currentVersion);
-          return (
-            <div
-              key={phase.id}
-              className={`phase-row ${done ? 'done' : 'pending'}`}
-            >
-              <div className="phase-meta">
-                <div>
-                  <strong>
-                    {phase.phaseTemplate.sortOrder}. {phase.phaseTemplate.name}
-                  </strong>
-                  <div className="muted">{phase.phaseTemplate.crisis}</div>
-                </div>
-                <div>
-                  {done ? (
-                    <span className="badge ok">
-                      Completada · {phase.currentVersion!.score.toFixed(1)}
-                    </span>
-                  ) : (
-                    <span className="badge">Pendiente</span>
-                  )}
-                </div>
-              </div>
-              {done && phase.currentVersion && (
-                <div className="muted">
-                  Fecha:{' '}
-                  {toDateInput(phase.currentVersion.evaluationDate)} · Versión
-                  vigente #{phase.currentVersion.versionNumber}
-                  {phase.currentVersion.notes
-                    ? ` — ${phase.currentVersion.notes}`
-                    : ''}
-                </div>
-              )}
-              <div className="actions">
-                <button type="button" onClick={() => openEvaluate(phase.id)}>
-                  {done ? 'Editar evaluación' : 'Evaluar fase'}
-                </button>
-                {done && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => openHistory(phase.id)}
-                  >
-                    Ver historial
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="phase-tabs">
+        {phases.map((phase) => (
+          <button
+            key={phase.id}
+            type="button"
+            className={`phase-tab ${activePhase?.id === phase.id ? 'active' : ''} ${!phase.unlocked ? 'locked' : ''} ${phase.approved ? 'approved' : ''}`}
+            onClick={() => setActivePhaseId(phase.id)}
+          >
+            <span>
+              {phase.phaseTemplate.sortOrder}. {phase.phaseTemplate.name}
+            </span>
+            <strong>{phase.score.toFixed(2)}</strong>
+            {!phase.unlocked && <em>Bloqueada</em>}
+            {phase.approved && <em>Aprobada</em>}
+          </button>
+        ))}
       </div>
 
-      {evaluating && (
-        <div className="modal-backdrop" onClick={() => setEvaluatingPhaseId(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>
-              {evaluating.currentVersion ? 'Editar' : 'Evaluar'}:{' '}
-              {evaluating.phaseTemplate.name}
-            </h2>
-            <p className="muted">Califique cada ítem de 1 a 5</p>
-            <form onSubmit={submitEvaluation}>
-              <div className="field">
-                <label>Fecha de evaluación</label>
-                <input
-                  type="date"
-                  value={evaluationDate}
-                  onChange={(e) => setEvaluationDate(e.target.value)}
-                  required
-                />
-              </div>
-              {evaluating.phaseTemplate.items.map((item) => (
-                <div className="field" key={item.id}>
-                  <label>
-                    {item.label} — {scores[item.id] ?? 3}
-                  </label>
-                  <input
-                    type="range"
-                    min={1}
-                    max={5}
-                    step={1}
-                    value={scores[item.id] ?? 3}
-                    onChange={(e) =>
-                      setScores({
-                        ...scores,
-                        [item.id]: Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-              ))}
-              <div className="field">
-                <label>Notas</label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-              {evaluating.currentVersion && (
-                <div className="field">
-                  <label>Nota aclaratoria (obligatoria al editar)</label>
-                  <textarea
-                    rows={3}
-                    value={clarificationNote}
-                    onChange={(e) => setClarificationNote(e.target.value)}
-                    required
-                    minLength={5}
-                    placeholder="Explique por qué se modifica esta evaluación…"
-                  />
+      {activePhase && (
+        <div className={`panel ${!activePhase.unlocked ? 'is-locked' : ''}`}>
+          <div className="page-header" style={{ marginBottom: '1rem' }}>
+            <div>
+              <h2>{activePhase.phaseTemplate.name}</h2>
+              {activePhase.phaseTemplate.description && (
+                <p className="muted">{activePhase.phaseTemplate.description}</p>
+              )}
+            </div>
+            <div className="score-badge compact">
+              <span className="muted">Promedio fase</span>
+              <strong>{activePhase.score.toFixed(2)}</strong>
+            </div>
+          </div>
+
+          {!activePhase.unlocked && (
+            <div className="warn-banner">
+              Esta fase está bloqueada. Aprueba la fase anterior con promedio
+              &gt; {approvalThreshold}.
+            </div>
+          )}
+
+          {activePhase.subgroups.map((sg) => (
+            <section
+              key={sg.id}
+              className={`subgroup-block ${!sg.unlocked ? 'is-locked' : ''}`}
+            >
+              {!sg.subgroupTemplate.hideInUi && (
+                <div className="subgroup-header">
+                  <div>
+                    <h3>{sg.subgroupTemplate.name}</h3>
+                    {sg.subgroupTemplate.purpose && (
+                      <p className="muted">{sg.subgroupTemplate.purpose}</p>
+                    )}
+                  </div>
+                  <div className="subgroup-meta">
+                    <strong>{sg.score.toFixed(2)}</strong>
+                    {sg.approved ? (
+                      <span className="pill ok">Aprobado</span>
+                    ) : (
+                      <span className="pill">En curso</span>
+                    )}
+                    {!sg.unlocked && <span className="pill warn">Bloqueado</span>}
+                  </div>
                 </div>
               )}
-              <div className="actions">
-                <button type="submit">Guardar versión</button>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setEvaluatingPhaseId(null)}
-                >
-                  Cancelar
-                </button>
+
+              <div className="criteria-list">
+                {sg.criteria.map((c) => {
+                  const editable = activePhase.unlocked && sg.unlocked;
+                  return (
+                    <div key={c.id} className="criterion-row">
+                      <div className="criterion-label">
+                        <span className="muted">
+                          {c.criterionTemplate.sortOrder}.
+                        </span>{' '}
+                        {c.criterionTemplate.label}
+                      </div>
+                      <div className="criterion-actions">
+                        <input
+                          type="number"
+                          min={0}
+                          max={5}
+                          step={0.1}
+                          disabled={!editable}
+                          value={draftScores[c.id] ?? String(c.score)}
+                          onChange={(e) =>
+                            setDraftScores((prev) => ({
+                              ...prev,
+                              [c.id]: e.target.value,
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          disabled={!editable || savingCriterionId === c.id}
+                          onClick={() => void saveCriterion(c.id)}
+                        >
+                          {savingCriterionId === c.id ? '…' : 'Guardar'}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            void openHistory(c.id, c.criterionTemplate.label)
+                          }
+                        >
+                          Historial
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </form>
-          </div>
+            </section>
+          ))}
         </div>
       )}
 
-      {historyPhaseId && (
-        <div className="modal-backdrop" onClick={() => setHistoryPhaseId(null)}>
+      {historyCriterionId && (
+        <div className="modal-backdrop" onClick={() => setHistoryCriterionId(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Historial de versiones</h2>
-            <p className="muted">
-              Solo la versión vigente se muestra en la consulta principal. Las
-              anteriores son de solo lectura.
-            </p>
-            {history.map((v) => (
-              <div className="history-item" key={v.id}>
-                <div className="phase-meta">
-                  <strong>
-                    Versión #{v.versionNumber}
-                    {v.isCurrent ? ' (vigente)' : ''}
-                  </strong>
-                  <span className="badge">{v.score.toFixed(1)} / 5</span>
-                </div>
-                <div className="muted">
-                  Fecha evaluación: {toDateInput(v.evaluationDate)} · Registrado:{' '}
-                  {new Date(v.createdAt).toLocaleString('es')} ·{' '}
-                  {v.createdBy.email}
-                </div>
-                {v.clarificationNote && (
-                  <p>
-                    <strong>Aclaración:</strong> {v.clarificationNote}
-                  </p>
-                )}
-                {v.notes && (
-                  <p>
-                    <strong>Notas:</strong> {v.notes}
-                  </p>
-                )}
-                <ul>
-                  {v.itemScores.map((s) => (
-                    <li key={s.id}>
-                      {s.phaseItemTemplate.label}: {s.score}
-                    </li>
-                  ))}
-                </ul>
+            <div className="page-header">
+              <div>
+                <h2>Historial de calificación</h2>
+                <p className="muted">{historyLabel}</p>
               </div>
-            ))}
-            <button type="button" className="secondary" onClick={() => setHistoryPhaseId(null)}>
-              Cerrar
-            </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setHistoryCriterionId(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+            {history.length === 0 ? (
+              <p className="muted">Sin cambios registrados.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Anterior</th>
+                    <th>Nueva</th>
+                    <th>Usuario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((row) => (
+                    <tr key={row.id}>
+                      <td>{new Date(row.changedAt).toLocaleString()}</td>
+                      <td>{row.previousScore.toFixed(2)}</td>
+                      <td>{row.newScore.toFixed(2)}</td>
+                      <td>{row.changedBy.email}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}

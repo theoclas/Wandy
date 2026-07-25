@@ -18,7 +18,7 @@ export function Layout() {
             <>
               <NavLink to="/professionals">Profesionales</NavLink>
               <NavLink to="/patient-types">Tipos de paciente</NavLink>
-              <NavLink to="/phases">Fases Erikson</NavLink>
+              <NavLink to="/phases">Fases</NavLink>
             </>
           )}
           {!isAdmin && <NavLink to="/phases">Fases (consulta)</NavLink>}
@@ -28,7 +28,7 @@ export function Layout() {
           <div>{user?.role === 'ADMIN' ? 'Administrador' : 'Profesional'}</div>
           <button
             className="secondary"
-            style={{ marginTop: '0.75rem', color: '#e8f0ec', borderColor: '#4a635a' }}
+            style={{ marginTop: '0.75rem', color: '#e8eef8', borderColor: '#3d5a80' }}
             onClick={logout}
           >
             Cerrar sesión

@@ -25,11 +25,15 @@ export function DashboardPage() {
   }
 
   if (error || !stats) {
-    return <div className="error">{error || 'No se pudieron cargar las estadísticas'}</div>;
+    return (
+      <div className="error">
+        {error || 'No se pudieron cargar las estadísticas'}
+      </div>
+    );
   }
 
   const maxPhasePatients = Math.max(
-    ...stats.phases.map((p) => p.completedCount + p.pendingCount),
+    ...stats.phases.map((p) => p.approvedCount + p.pendingCount),
     1,
   );
 
@@ -57,16 +61,16 @@ export function DashboardPage() {
           <span className="stat-label">Calificación promedio</span>
           <strong className="stat-value accent">
             {stats.scores.averageGlobal !== null
-              ? stats.scores.averageGlobal.toFixed(1)
+              ? stats.scores.averageGlobal.toFixed(2)
               : '—'}
           </strong>
-          <span className="muted">sobre fases evaluadas (1–5)</span>
+          <span className="muted">escala 0–5</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Evaluaciones</span>
+          <span className="stat-label">Cambios de nota</span>
           <strong className="stat-value">{stats.totals.evaluations}</strong>
           <span className="muted">
-            {stats.scores.fullyCompleted} historias completas
+            {stats.scores.fullyCompleted} historias aprobadas
           </span>
         </div>
         <div className="stat-card">
@@ -81,15 +85,17 @@ export function DashboardPage() {
 
       <div className="dash-columns">
         <div className="panel">
-          <h2>Fases eriksonianas</h2>
+          <h2>Fases Destellos</h2>
           <p className="muted" style={{ marginBottom: '1rem' }}>
-            Pacientes que ya completaron cada fase frente a los pendientes
+            Pacientes con promedio &gt; 3 en cada fase frente a los pendientes
           </p>
           <div className="phase-bars">
             {stats.phases.map((phase) => {
-              const total = phase.completedCount + phase.pendingCount;
+              const total = phase.approvedCount + phase.pendingCount;
               const pct =
-                total > 0 ? Math.round((phase.completedCount / total) * 100) : 0;
+                total > 0
+                  ? Math.round((phase.approvedCount / total) * 100)
+                  : 0;
               const widthPct = Math.round((total / maxPhasePatients) * 100);
               return (
                 <div key={phase.id} className="phase-bar-row">
@@ -97,21 +103,26 @@ export function DashboardPage() {
                     <strong>
                       {phase.sortOrder}. {phase.name}
                     </strong>
-                    <span className="muted">{phase.crisis}</span>
+                    <span className="muted">{phase.description}</span>
                   </div>
-                  <div className="phase-bar-track" style={{ width: `${Math.max(widthPct, 40)}%` }}>
+                  <div
+                    className="phase-bar-track"
+                    style={{ width: `${Math.max(widthPct, 40)}%` }}
+                  >
                     <div
                       className="phase-bar-fill"
                       style={{ width: `${pct}%` }}
-                      title={`${phase.completedCount} completadas`}
+                      title={`${phase.approvedCount} aprobadas`}
                     />
                   </div>
                   <div className="phase-bar-meta">
-                    <span className="badge ok">{phase.completedCount} hechas</span>
+                    <span className="badge ok">
+                      {phase.approvedCount} aprobadas
+                    </span>
                     <span className="badge">{phase.pendingCount} pend.</span>
                     {phase.averageScore !== null && (
                       <span className="badge score">
-                        avg {phase.averageScore.toFixed(1)}
+                        avg {phase.averageScore.toFixed(2)}
                       </span>
                     )}
                   </div>
@@ -161,8 +172,7 @@ export function DashboardPage() {
         </div>
         {stats.patients.length === 0 ? (
           <p className="muted">
-            No hay pacientes.{' '}
-            <Link to="/patients">Crear el primero</Link>
+            No hay pacientes. <Link to="/patients">Crear el primero</Link>
           </p>
         ) : (
           <div className="table-wrap">
@@ -173,7 +183,7 @@ export function DashboardPage() {
                   <th>Tipo</th>
                   <th>Progreso</th>
                   <th>Fase actual</th>
-                  <th>Última completada</th>
+                  <th>Última aprobada</th>
                   <th>Score</th>
                   <th></th>
                 </tr>
@@ -212,7 +222,7 @@ export function DashboardPage() {
                             >
                               {p.currentPhase.status === 'PENDING'
                                 ? 'Pendiente'
-                                : 'Completa'}
+                                : 'Aprobada'}
                             </span>
                             <div>
                               {p.currentPhase.sortOrder}. {p.currentPhase.name}
@@ -224,13 +234,13 @@ export function DashboardPage() {
                       </td>
                       <td>
                         {p.lastCompletedPhase
-                          ? `${p.lastCompletedPhase.sortOrder}. ${p.lastCompletedPhase.name} (${p.lastCompletedPhase.score.toFixed(1)})`
+                          ? `${p.lastCompletedPhase.sortOrder}. ${p.lastCompletedPhase.name} (${p.lastCompletedPhase.score.toFixed(2)})`
                           : 'Ninguna'}
                       </td>
                       <td>
                         {p.globalScore !== null ? (
                           <span className="score-badge compact">
-                            {p.globalScore.toFixed(1)}
+                            {p.globalScore.toFixed(2)}
                           </span>
                         ) : (
                           '—'

@@ -30,7 +30,7 @@ export function LoginPage() {
     <div className="login-page">
       <div className="login-panel">
         <div className="login-brand">Wandy</div>
-        <p className="login-sub">Historia clínica eriksoniana</p>
+        <p className="login-sub">Historia clínica · fases Destellos</p>
         {error && <div className="error">{error}</div>}
         <form onSubmit={onSubmit}>
           <div className="field">

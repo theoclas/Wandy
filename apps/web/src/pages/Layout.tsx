@@ -8,7 +8,17 @@ export function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">Wandy</div>
+        <div className="sidebar-brand">
+          <img
+            src="/icon-192.png"
+            alt="Corporación Destellos"
+            className="sidebar-brand-mark"
+          />
+          <div className="sidebar-brand-text">
+            <span className="sidebar-brand-name">Corporación</span>
+            <strong className="sidebar-brand-title">DESTELLOS</strong>
+          </div>
+        </div>
         <nav>
           <NavLink to="/" end>
             Inicio
@@ -28,7 +38,11 @@ export function Layout() {
           <div>{user?.role === 'ADMIN' ? 'Administrador' : 'Profesional'}</div>
           <button
             className="secondary"
-            style={{ marginTop: '0.75rem', color: '#e8eef8', borderColor: '#3d5a80' }}
+            style={{
+              marginTop: '0.75rem',
+              color: '#e8eef8',
+              borderColor: '#3d5a80',
+            }}
             onClick={logout}
           >
             Cerrar sesión

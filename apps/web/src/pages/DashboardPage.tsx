@@ -39,14 +39,30 @@ export function DashboardPage() {
 
   return (
     <div>
-      <div className="page-header">
+      <section className="brand-banner">
+        <img
+          src="/logo-destellos.png"
+          alt="Corporación Destellos"
+          className="brand-banner-logo"
+        />
         <div>
-          <h1>Dashboard</h1>
-          <p className="muted">Resumen clínico · {greeting}</p>
+          <p className="brand-banner-kicker">Sistema de historias clínicas</p>
+          <h1 className="brand-banner-title">Corporación Destellos</h1>
+          <p className="muted">
+            Bienvenido{greeting ? `, ${greeting}` : ''}. Resumen del proceso
+            terapéutico Destellos → Iluminación → Resplandor → Esplendor.
+          </p>
         </div>
-        <Link to="/patients">
+        <Link to="/patients" className="brand-banner-action">
           <button type="button">Gestionar pacientes</button>
         </Link>
+      </section>
+
+      <div className="page-header">
+        <div>
+          <h2>Panel de control</h2>
+          <p className="muted">Indicadores clínicos en tiempo real</p>
+        </div>
       </div>
 
       <div className="stat-grid">

@@ -5,8 +5,8 @@ import { useAuth } from '../auth';
 export function LoginPage() {
   const { user, login, loading } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@wandy.local');
-  const [password, setPassword] = useState('Admin123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,8 +29,8 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-panel">
-        <div className="login-brand">Wandy</div>
-        <p className="login-sub">Historia clínica · fases Destellos</p>
+        <h1 className="login-title">Iniciar sesión</h1>
+        <p className="login-sub">Acceso al sistema de historias clínicas</p>
         {error && <div className="error">{error}</div>}
         <form onSubmit={onSubmit}>
           <div className="field">
@@ -38,6 +38,7 @@ export function LoginPage() {
             <input
               id="email"
               type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -48,12 +49,13 @@ export function LoginPage() {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
-          <button type="submit" disabled={submitting} style={{ width: '100%' }}>
+          <button type="submit" disabled={submitting} className="login-submit">
             {submitting ? 'Entrando…' : 'Entrar'}
           </button>
         </form>

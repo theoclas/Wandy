@@ -25,9 +25,12 @@ API_PORT="$(get_env API_PORT)"
 HTTP_PORT="${HTTP_PORT:-8085}"
 API_PORT="${API_PORT:-3085}"
 
-if [ -z "$VITE_API_URL" ] || [[ "$VITE_API_URL" == *"TU_IP"* ]]; then
+# Vacío = mismo origen (Nginx del host proxya /api). No uses placeholder TU_IP.
+if [[ "$VITE_API_URL" == *"TU_IP"* ]]; then
   echo "ERROR: define VITE_API_URL real en .env.production"
-  echo "Ejemplo: VITE_API_URL=http://177.7.40.130:3085"
+  echo "  Subdominio: VITE_API_URL=https://corporaciondestellos.fersuastudio.com"
+  echo "  Mismo origen vía Nginx: VITE_API_URL=  (vacío)"
+  echo "  IP directa (sin HTTPS): VITE_API_URL=http://TU_IP:3085"
   exit 1
 fi
 

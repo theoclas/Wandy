@@ -1,15 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { APPROVAL_THRESHOLD } from '../clinical-histories/clinical-histories.service';
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
-}
-
-function average(values: number[]): number {
-  if (!values.length) return 0;
-  return round2(values.reduce((a, b) => a + b, 0) / values.length);
-}
+import { round2, weightedAverage } from '../common/weights';
 
 @Injectable()
 export class DashboardService {
@@ -32,7 +24,12 @@ export class DashboardService {
               include: {
                 phaseTemplate: true,
                 subgroups: {
-                  include: { criterionScores: true },
+                  include: {
+                    subgroupTemplate: true,
+                    criterionScores: {
+                      include: { criterionTemplate: true },
+                    },
+                  },
                 },
               },
               orderBy: { phaseTemplate: { sortOrder: 'asc' } },
@@ -56,9 +53,15 @@ export class DashboardService {
           continue;
         }
         const subgroupAvgs = phase.subgroups.map((sg) =>
-          average(sg.criterionScores.map((c) => c.score)),
+          weightedAverage(
+            sg.criterionScores.map((c) => c.score),
+            sg.criterionScores.map((c) => c.criterionTemplate.weightPct),
+          ),
         );
-        const phaseScore = average(subgroupAvgs);
+        const phaseScore = weightedAverage(
+          subgroupAvgs,
+          phase.subgroups.map((sg) => sg.subgroupTemplate.weightPct),
+        );
         scores.push(phaseScore);
         if (phaseScore > APPROVAL_THRESHOLD) approvedCount += 1;
         else pendingCount += 1;
@@ -69,6 +72,7 @@ export class DashboardService {
         sortOrder: template.sortOrder,
         name: template.name,
         description: template.description,
+        weightPct: template.weightPct,
         approvedCount,
         pendingCount,
         averageScore:
@@ -85,17 +89,26 @@ export class DashboardService {
 
       const phaseScores = history.phases.map((phase) => {
         const subgroupAvgs = phase.subgroups.map((sg) =>
-          average(sg.criterionScores.map((c) => c.score)),
+          weightedAverage(
+            sg.criterionScores.map((c) => c.score),
+            sg.criterionScores.map((c) => c.criterionTemplate.weightPct),
+          ),
         );
         return {
           phase,
-          score: average(subgroupAvgs),
+          score: weightedAverage(
+            subgroupAvgs,
+            phase.subgroups.map((sg) => sg.subgroupTemplate.weightPct),
+          ),
         };
       });
 
       const approved = phaseScores.filter((p) => p.score > APPROVAL_THRESHOLD);
       const pending = phaseScores.filter((p) => p.score <= APPROVAL_THRESHOLD);
-      const globalScore = average(phaseScores.map((p) => p.score));
+      const globalScore = weightedAverage(
+        phaseScores.map((p) => p.score),
+        phaseScores.map((p) => p.phase.phaseTemplate.weightPct),
+      );
       const lastApproved = approved[approved.length - 1];
       const nextPending = pending[0];
 

@@ -93,7 +93,7 @@ export function Layout() {
                 Tipos de paciente
               </NavLink>
               <NavLink to="/phases" onClick={closeMenu}>
-                Fases
+                Fases / pesos
               </NavLink>
             </>
           )}

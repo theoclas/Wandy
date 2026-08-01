@@ -13,17 +13,9 @@ import {
   UpdateClinicalHistoryDto,
   UpdateCriterionScoreDto,
 } from './dto/phase-version.dto';
+import { weightedAverage, round2 } from '../common/weights';
 
 export const APPROVAL_THRESHOLD = 3;
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
-}
-
-function average(values: number[]): number {
-  if (!values.length) return 0;
-  return round2(values.reduce((a, b) => a + b, 0) / values.length);
-}
 
 const historyInclude = {
   phases: {
@@ -159,10 +151,32 @@ export class ClinicalHistoriesService {
       });
 
       const patientPhaseId = score.patientSubgroup.patientPhaseId;
-      const phaseScores = await tx.patientCriterionScore.findMany({
-        where: { patientSubgroup: { patientPhaseId } },
+      const phaseRow = await tx.patientPhase.findUnique({
+        where: { id: patientPhaseId },
+        include: {
+          phaseTemplate: true,
+          subgroups: {
+            include: {
+              subgroupTemplate: true,
+              criterionScores: {
+                include: { criterionTemplate: true },
+              },
+            },
+          },
+        },
       });
-      const avg = average(phaseScores.map((s) => s.score));
+      if (!phaseRow) throw new NotFoundException('Fase no encontrada');
+
+      const subgroupScores = phaseRow.subgroups.map((sg) =>
+        weightedAverage(
+          sg.criterionScores.map((c) => c.score),
+          sg.criterionScores.map((c) => c.criterionTemplate.weightPct),
+        ),
+      );
+      const subgroupWeights = phaseRow.subgroups.map(
+        (sg) => sg.subgroupTemplate.weightPct,
+      );
+      const avg = weightedAverage(subgroupScores, subgroupWeights);
       let status: PatientPhaseStatus = PatientPhaseStatus.PENDING;
       if (avg > 0 && avg <= APPROVAL_THRESHOLD) {
         status = PatientPhaseStatus.IN_PROGRESS;
@@ -230,10 +244,16 @@ export class ClinicalHistoriesService {
       const subgroupAvgs = new Map<string, number>();
       for (const sg of phase.subgroups) {
         const scores = sg.criterionScores.map((c) => c.score);
-        subgroupAvgs.set(sg.id, average(scores));
+        const weights = sg.criterionScores.map(
+          (c) => c.criterionTemplate.weightPct,
+        );
+        subgroupAvgs.set(sg.id, weightedAverage(scores, weights));
       }
 
-      const phaseScore = average([...subgroupAvgs.values()]);
+      const phaseScore = weightedAverage(
+        phase.subgroups.map((sg) => subgroupAvgs.get(sg.id) ?? 0),
+        phase.subgroups.map((sg) => sg.subgroupTemplate.weightPct),
+      );
       phaseAverages.push(phaseScore);
 
       const unlockMode = phase.phaseTemplate.unlockMode;
@@ -265,6 +285,7 @@ export class ClinicalHistoriesService {
             name: sg.subgroupTemplate.name,
             purpose: sg.subgroupTemplate.purpose,
             hideInUi: sg.subgroupTemplate.hideInUi,
+            weightPct: sg.subgroupTemplate.weightPct,
           },
           criteria: sg.criterionScores.map((c) => ({
             id: c.id,
@@ -273,6 +294,7 @@ export class ClinicalHistoriesService {
               id: c.criterionTemplate.id,
               sortOrder: c.criterionTemplate.sortOrder,
               label: c.criterionTemplate.label,
+              weightPct: c.criterionTemplate.weightPct,
             },
           })),
         };
@@ -292,13 +314,17 @@ export class ClinicalHistoriesService {
           name: phase.phaseTemplate.name,
           description: phase.phaseTemplate.description,
           unlockMode: phase.phaseTemplate.unlockMode,
+          weightPct: phase.phaseTemplate.weightPct,
         },
         subgroups,
       };
     });
 
     const globalScore = phases.length
-      ? average(phases.map((p) => p.score))
+      ? weightedAverage(
+          phases.map((p) => p.score),
+          phases.map((p) => p.phaseTemplate.weightPct),
+        )
       : 0;
 
     return {

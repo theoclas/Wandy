@@ -1,85 +1,39 @@
+import { Type } from 'class-transformer';
 import {
-  IsBoolean,
-  IsInt,
-  IsOptional,
-  IsString,
+  ArrayMinSize,
+  IsArray,
+  IsNumber,
+  IsUUID,
+  Max,
   Min,
-  MinLength,
+  ValidateNested,
 } from 'class-validator';
 
-export class CreatePhaseTemplateDto {
-  @IsInt()
-  @Min(1)
-  sortOrder!: number;
+export class WeightItemDto {
+  @IsUUID()
+  id!: string;
 
-  @IsString()
-  @MinLength(2)
-  name!: string;
-
-  @IsString()
-  @MinLength(2)
-  crisis!: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  weightPct!: number;
 }
 
-export class UpdatePhaseTemplateDto {
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  sortOrder?: number;
+export class UpdateWeightsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => WeightItemDto)
+  phases!: WeightItemDto[];
 
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  name?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WeightItemDto)
+  subgroups!: WeightItemDto[];
 
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  crisis?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  active?: boolean;
-}
-
-export class CreatePhaseItemDto {
-  @IsInt()
-  @Min(1)
-  sortOrder!: number;
-
-  @IsString()
-  @MinLength(2)
-  label!: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-}
-
-export class UpdatePhaseItemDto {
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  sortOrder?: number;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  label?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  active?: boolean;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WeightItemDto)
+  criteria!: WeightItemDto[];
 }

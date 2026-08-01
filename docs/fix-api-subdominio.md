@@ -13,32 +13,67 @@ Con PM2:
 
 Si Nginx solo manda todo el dominio al `8085`, las peticiones `/api/*` caen en el SPA.
 
+**Trampa frecuente:** tienes dos sitios (`corporaciondestellos` y `corporaciondestellos.fersuastudio.com`). Certbot pone el SSL en uno; si agregas `/api/` solo en el de puerto 80, el login por HTTPS sigue roto.
+
 ## Arreglo (en la VPS)
 
-### 1. Nginx: proxy `/` → web y `/api/` → api
+### 0. Ver qué servidor HTTPS atiende el dominio
 
 ```bash
-cd ~/apps/Wandy
-git pull
+sudo nginx -T 2>/dev/null | grep -E 'server_name|listen |location |proxy_pass' | head -n 80
+sudo ls -la /etc/nginx/sites-enabled/
+# Ver contenido SSL:
+sudo grep -n "location\|proxy_pass\|listen\|server_name" /etc/nginx/sites-enabled/corporaciondestellos.fersuastudio.com
+sudo grep -n "location\|proxy_pass\|listen\|server_name" /etc/nginx/sites-enabled/corporaciondestellos
+```
 
-sudo cp deploy/nginx-host-destellos.conf /etc/nginx/sites-available/corporaciondestellos
-sudo ln -sf /etc/nginx/sites-available/corporaciondestellos /etc/nginx/sites-enabled/
+### 1. Editar el `server` con `listen 443 ssl`
+
+```bash
+sudo nano /etc/nginx/sites-enabled/corporaciondestellos.fersuastudio.com
+# (o el archivo que tenga listen 443)
+```
+
+**Antes** de `location /`, agrega:
+
+```nginx
+location = /api {
+    proxy_pass http://127.0.0.1:3085/api;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Authorization $http_authorization;
+}
+
+location /api/ {
+    proxy_pass http://127.0.0.1:3085/api/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Authorization $http_authorization;
+}
+```
+
+El `location /` debe seguir apuntando a `http://127.0.0.1:8085`.
+
+Si hay dos sitios duplicados, deja **uno** activo y deshabilita el otro:
+
+```bash
+sudo rm /etc/nginx/sites-enabled/corporaciondestellos
+# conserva el de Certbot (.fersuastudio.com) ya corregido
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Si el sitio ya existía, edita el `server` del subdominio y agrega el bloque `location /api/` (ver `deploy/nginx-host-destellos.conf`). Los puertos deben coincidir con `.env.production`.
-
-Certificado (si aún no):
-
-```bash
-sudo certbot --nginx -d corporaciondestellos.fersuastudio.com
-```
+Referencia completa: `deploy/nginx-host-destellos.conf`.
 
 ### 2. `.env.production` para mismo origen
 
 ```env
 CORS_ORIGIN=https://corporaciondestellos.fersuastudio.com
-# Mismo origen vía Nginx (sin puerto). Vacío también sirve.
 VITE_API_URL=https://corporaciondestellos.fersuastudio.com
 HTTP_PORT=8085
 API_PORT=3085
@@ -46,7 +81,7 @@ API_PORT=3085
 
 **No** uses `http://IP:3085` como `VITE_API_URL` detrás de HTTPS: el navegador bloquea mixed content.
 
-### 3. Rebuild + reinicio
+### 3. Rebuild + reinicio (solo si cambiaste VITE_API_URL)
 
 ```bash
 cd ~/apps/Wandy
@@ -57,11 +92,14 @@ pm2 status
 ### 4. Verificación
 
 ```bash
-# Debe responder Nest (JSON / 404 API), NO el HTML del login
-curl -sI https://corporaciondestellos.fersuastudio.com/api
+# Local Nest OK (JSON 404 es normal en GET /api)
 curl -s http://127.0.0.1:3085/api
 
-pm2 logs wandy-api --lines 40
+# Por HTTPS debe ser JSON Nest, NO index.html
+curl -sI https://corporaciondestellos.fersuastudio.com/api
+curl -s -X POST https://corporaciondestellos.fersuastudio.com/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@wandy.local","password":"Admin123!"}'
 ```
 
 Login en el navegador (caché limpia / pestaña privada).
@@ -71,7 +109,7 @@ Login en el navegador (caché limpia / pestaña privada).
 | Check | Esperado |
 |-------|----------|
 | `ss -tlnp \| grep -E '8085\|3085'` | Ambos escuchando |
-| Nginx `location /api/` | → `127.0.0.1:3085` |
+| Nginx `location /api/` en el **server 443** | → `127.0.0.1:3085` |
 | Nginx `location /` | → `127.0.0.1:8085` |
-| `VITE_API_URL` | `https://corporaciondestellos.fersuastudio.com` o vacío |
-| `CORS_ORIGIN` | el mismo dominio HTTPS |
+| `VITE_API_URL` | dominio HTTPS o vacío |
+| Un solo site enabled para ese `server_name` | evita conflictos |

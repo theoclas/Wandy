@@ -103,6 +103,8 @@ model PhaseTemplate {
   name        String
   description String?
   unlockMode  PhaseUnlockMode @default(ALL_OPEN)
+  /// Peso % de esta fase en la nota global (hermanas activas suman 100).
+  weightPct   Float           @default(0)
   active      Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -121,6 +123,8 @@ model SubgroupTemplate {
   purpose         String?
   /// Si true, la UI no muestra el título del subgrupo (Esplendor).
   hideInUi        Boolean  @default(false)
+  /// Peso % de este subgrupo en su fase (hermanos activos suman 100).
+  weightPct       Float    @default(0)
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -137,6 +141,8 @@ model CriterionTemplate {
   subgroupTemplateId String
   sortOrder          Int
   label              String
+  /// Peso % de este criterio en su subgrupo (hermanos activos suman 100).
+  weightPct          Float    @default(0)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

@@ -12,22 +12,25 @@ Documento de captura. **No implementa código.** Se irá completando fase por fa
 
 - Valor inicial por subtarea: **0** (todas las subtareas nacen en `0` por defecto).
 - Escala de calificación: **0 a 5**, con decimales (ej. `0`, `1`, `1.2`, `1.5`, `3.7`).
-- Todas las subtareas **pesan igual** (promedio simple).
-- **Nota de una subfase / grupo / líder** = promedio (ponderado simple) de sus subtareas/criterios.
-- **Nota de una fase** = promedio (ponderado) de las notas de sus subfases / grupos / líderes.
-- Un grupo/subfase/líder se aprueba para desbloqueo interno cuando su promedio es **superior a 3** (`> 3`).
-- **Desbloqueo entre fases (cadena):** Fase 1 disponible al inicio. Fase 2 se desbloquea cuando el promedio de Fase 1 es `> 3`. Fase 3 cuando Fase 2 es `> 3`. Fase 4 cuando Fase 3 es `> 3`.
+- Los pesos son **porcentuales** y los define el **administrador** en **Fases / pesos**.
+- En cada grupo hermano los pesos **deben sumar 100%**:
+  - Criterios dentro de una subfase / grupo / líder
+  - Subfases / grupos / líderes dentro de una fase
+  - Fases (Destellos…Esplendor) para la **nota global**
+- Default al seed/migración: **partes iguales** (`100 / n`; el último absorbe el residuo).
+- **Nota** = promedio ponderado: `Σ (nota × peso%) / Σ pesos` (equiv. `/ 100` si suman 100).
+- Un grupo/subfase/líder se aprueba para desbloqueo interno cuando su nota ponderada es **superior a 3** (`> 3`).
+- **Desbloqueo entre fases (cadena):** Fase 1 disponible al inicio. Fase 2 se desbloquea cuando la nota ponderada de Fase 1 es `> 3`. Igual para 3 y 4.
 
 ### Resumen de cálculo
 
 ```
-nota_subtarea          = 0..5 (inicia en 0)
-nota_subfase_o_grupo   = promedio(subtareas)
-nota_fase              = promedio(subfases | grupos | líderes)
+nota_subtarea          = 0..5 (inicia en 0) + weightPct
+nota_subfase_o_grupo   = weightedAvg(criterios)
+nota_fase              = weightedAvg(subfases | grupos | líderes)
+nota_global            = weightedAvg(fases)
 desbloqueo_fase_N+1    = nota_fase_N > 3
 ```
-
-Asumido por ahora: dentro de una fase, **todas las subfases/grupos/líderes pesan igual**. Si alguna pesa más, se define peso explícito.
 
 ## Jerarquía (misma lógica en todas las fases)
 

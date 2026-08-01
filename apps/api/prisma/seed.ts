@@ -1,5 +1,6 @@
 import { PhaseUnlockMode, PrismaClient, Role, Gender } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { equalWeights } from '../src/common/weights';
 
 const prisma = new PrismaClient();
 
@@ -271,27 +272,37 @@ async function seedPhases() {
   await prisma.subgroupTemplate.deleteMany();
   await prisma.phaseTemplate.deleteMany();
 
-  for (const phase of phases) {
+  const phaseWeights = equalWeights(phases.length);
+
+  for (let pi = 0; pi < phases.length; pi += 1) {
+    const phase = phases[pi];
+    const sgWeights = equalWeights(phase.subgroups.length);
     await prisma.phaseTemplate.create({
       data: {
         sortOrder: phase.sortOrder,
         name: phase.name,
         description: phase.description,
         unlockMode: phase.unlockMode,
+        weightPct: phaseWeights[pi],
         subgroups: {
-          create: phase.subgroups.map((sg) => ({
-            sortOrder: sg.sortOrder,
-            unlockRank: sg.unlockRank,
-            name: sg.name,
-            purpose: sg.purpose,
-            hideInUi: sg.hideInUi ?? false,
-            criteria: {
-              create: sg.criteria.map((label, index) => ({
-                sortOrder: index + 1,
-                label,
-              })),
-            },
-          })),
+          create: phase.subgroups.map((sg, si) => {
+            const cWeights = equalWeights(sg.criteria.length);
+            return {
+              sortOrder: sg.sortOrder,
+              unlockRank: sg.unlockRank,
+              name: sg.name,
+              purpose: sg.purpose,
+              hideInUi: sg.hideInUi ?? false,
+              weightPct: sgWeights[si],
+              criteria: {
+                create: sg.criteria.map((label, index) => ({
+                  sortOrder: index + 1,
+                  label,
+                  weightPct: cWeights[index],
+                })),
+              },
+            };
+          }),
         },
       },
     });

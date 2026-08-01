@@ -54,6 +54,7 @@ export type CriterionTemplate = {
   id: string;
   sortOrder: number;
   label: string;
+  weightPct: number;
   active?: boolean;
 };
 
@@ -64,6 +65,7 @@ export type SubgroupTemplate = {
   name: string;
   purpose: string | null;
   hideInUi: boolean;
+  weightPct: number;
   criteria: CriterionTemplate[];
 };
 
@@ -73,6 +75,7 @@ export type PhaseTemplate = {
   name: string;
   description: string | null;
   unlockMode: PhaseUnlockMode;
+  weightPct: number;
   active?: boolean;
   subgroups: SubgroupTemplate[];
 };
@@ -84,6 +87,7 @@ export type PatientCriterionView = {
     id: string;
     sortOrder: number;
     label: string;
+    weightPct: number;
   };
 };
 
@@ -99,6 +103,7 @@ export type PatientSubgroupView = {
     name: string;
     purpose: string | null;
     hideInUi: boolean;
+    weightPct: number;
   };
   criteria: PatientCriterionView[];
 };
@@ -115,6 +120,7 @@ export type PatientPhaseView = {
     name: string;
     description: string | null;
     unlockMode: PhaseUnlockMode;
+    weightPct: number;
   };
   subgroups: PatientSubgroupView[];
 };

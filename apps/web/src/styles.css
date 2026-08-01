@@ -1114,6 +1114,56 @@ tr:last-child td {
   gap: 0.25rem;
 }
 
+.weight-panel {
+  margin-bottom: 1rem;
+}
+
+.weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.weight-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.weight-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.weight-input.compact {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.weight-input input {
+  width: 5.5rem;
+}
+
+.weight-input em {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .weight-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .badge {
   display: inline-block;
   font-size: 0.75rem;
